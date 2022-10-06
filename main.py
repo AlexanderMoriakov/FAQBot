@@ -14,22 +14,6 @@ class Question:
     def __init__(self) -> None:
         self.question = ''
         self.words = {}
-def init_questions(questions):
-    array = {}
-    for n in questions:
-        array[n] = {}
-        for i in questions[n].split(' '):
-            array[n][i] = 0
-            for z in questions:
-                if(n != z):
-                    for v in questions[z].split(' '):
-                        if(i == v):
-                            print(f'{i} == {v}')
-                            array[n][i] += 1
-            print(array[n][i])
-    print(array)
-
-
 
 bot = Bot(cfg['token'])
 dp = Dispatcher(bot=bot)
@@ -62,5 +46,4 @@ def main():
     executor.start_polling(dp)
 
 if __name__ == '__main__':
-    init_questions(questions=QUESTIONS)
     main()
