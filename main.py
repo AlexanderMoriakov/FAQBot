@@ -1,9 +1,12 @@
-from asyncore import write
 from random import randint
+import re
 from aiogram import executor,Bot,Dispatcher,types
+from aiogram.types import InlineKeyboardButton,InlineKeyboardMarkup
 import json
+import difflib
 
 from numpy import mat
+from soupsieve import match
 with open('questions.json',encoding='utf-8') as json_file:
     questions = json.load(json_file)
 json_file.close()
@@ -30,44 +33,46 @@ def write_down_unresponed_question(question,name):
         json.dump(unresponded, f, ensure_ascii=False, indent=4)
     f.close()
 
+def get_answer(question):
+    return f'{question} : {QUESTIONS[question]}'
 
-def compare_match(question, match):
-    similiarity = 0
-    match_array = match.split(' ')
-    for n in question.split(' '):
-        if n in match_array:
-            similiarity += 10
-    if question == match:
-        similiarity+=500
-    return similiarity
-def filter_questions(questions,exclude_array):
-    l = questions
-    for n in exclude_array:
-        l = l.remove(n)
-    return l
-
-
-def find_best_match(question,exclude_array,message):
-    filtered_QUESTIONS = filter_questions(QUESTIONS,exclude_array)
-    best_match = ''
-    best_match_score = 0
-    for n in filtered_QUESTIONS.keys():
-        comparision_score = compare_match(question,n)
-        if(comparision_score > best_match_score):
-            best_match = n
-            best_match_score = comparision_score
-    if(best_match == ''):
-        write_down_unresponed_question(question,message.from_user.id)
-        return 'К сожалению, нам не удалось ответить на ваш вопрос. Он будет отправлен напрямую нашему начальству и вам на него обязательно ответят.'
-    return f'{best_match} : {filtered_QUESTIONS[best_match]}'
+async def find_best_match(question,id,n=0):
     
-
+    matches = difflib.get_close_matches(question,QUESTIONS.keys() , n=3, cutoff=0.4)
+    if(len(matches)<=n):
+        await bot.send_message(chat_id=id,text="Нам не удалось найти ответ на ваш вопрос, он будет рассмотрен вручную и вам на него ответят")
+        write_down_unresponed_question(question,id)
+        return 
+    keyboard = [
+            [
+                InlineKeyboardButton("Спасибо", callback_data=f"Да${question}${n}"),
+                
+            ],
+            [InlineKeyboardButton("Мне не подходит такой ответ", callback_data=f"Нет${question}${n}")]
+        ]
+    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+    await bot.send_message(chat_id=id,text=get_answer(matches[n]),reply_markup=markup)
+    
+    
 @dp.message_handler()
 async def echo(message : types.Message):
-    await bot.send_message(chat_id=message.from_user.id,text=find_best_match(message.text.lower(),[],message=message))
+    await find_best_match(message.text,message.from_user.id)
+    await bot.answer_callback_query('')
+
+@dp.callback_query_handler(lambda callback_query: True)
+async def some_callback_handler(callback_query: types.CallbackQuery):
+    print(callback_query.data.split('$'))
+    print(callback_query.inline_message_id)
+    chat_id = callback_query.message.chat.id
+    if(callback_query.data.split('$')[0]=='Да'):
+        await bot.send_message(chat_id=chat_id,text='Пожалуйста :3')
+    elif(callback_query.data.split('$')[0]=='Нет'):
+        await find_best_match(question=callback_query.data.split('$')[1],id=chat_id,n=int(callback_query.data.split('$')[2])+1)
+    await bot.edit_message_reply_markup(chat_id=chat_id,message_id=callback_query.message.message_id,reply_markup=InlineKeyboardMarkup(inline_keyboard=[[],[]]))
+
+
 
 def main():
-    compare_match('абобус', "сусус абобус")
     executor.start_polling(dp)
 
 if __name__ == '__main__':
