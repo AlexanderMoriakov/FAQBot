@@ -56,13 +56,12 @@ async def find_best_match(question,id,n=0):
     
 @dp.message_handler()
 async def echo(message : types.Message):
+    print(message)
     await find_best_match(message.text,message.from_user.id)
     await bot.answer_callback_query('')
 
 @dp.callback_query_handler(lambda callback_query: True)
 async def some_callback_handler(callback_query: types.CallbackQuery):
-    print(callback_query.data.split('$'))
-    print(callback_query.inline_message_id)
     chat_id = callback_query.message.chat.id
     if(callback_query.data.split('$')[0]=='Да'):
         await bot.send_message(chat_id=chat_id,text='Пожалуйста :3')
